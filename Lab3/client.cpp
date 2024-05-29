@@ -10,13 +10,13 @@
 std::string randomString(int n)
 {
     srand(time(NULL));
-    std::string reuslt;
+    std::string result;
 
     for(int i = 0; i < n; i++) {
-        reuslt.push_back(rand() % 26 + 'a');
+        result.push_back(rand() % 26 + 'a');
     }
 
-    return reuslt;
+    return result;
 }
 
 void handleClient(SOCKET clientSocket) {
