@@ -12,12 +12,15 @@
 #pragma comment (lib, "ws2_32.lib")
 
 #define BUFFER_SIZE 512
-#define MAX_USERS 3
 
-std::mutex m;
-std::condition_variable cv;
+#define MIN_USERS 3
+#define MAX_USERS 5
+
+std::mutex bufferMutex, userCountMutex;
+std::condition_variable userCountCV, bufferCV;
 
 int users = 0;
+bool bufferInUse = false;
 
 class Client {
 private:
@@ -31,25 +34,26 @@ public:
     Client(SOCKET _clientSocket){
         this->clientSocket = _clientSocket;
         number = ++totalAmount;
-        //data = "ERROR";
+        data = "";
         dataSize = -1;
     }
 };
 
-void handleClients(SOCKET clientSocket, std::fstream &log) {
+void handleClients(SOCKET clientSocket, std::ofstream& log) {
     auto _client = new Client(clientSocket);
 
     users++;
 
-    std::unique_lock lock(m);
+    std::unique_lock userCountLock(userCountMutex);
 
     char msgSize[BUFFER_SIZE];
     char msg[BUFFER_SIZE];
 
     std::cout << "Client number " << _client->number << " connected...\n";
 
-    cv.wait(lock, []{return users <= MAX_USERS;} );
-    //lock.lock();
+    std::this_thread::sleep_for(std::chrono::milliseconds (10));
+
+    userCountCV.wait(userCountLock, []{return users >= MIN_USERS;} );
 
     int bytesReceivedSize = (recv(_client->clientSocket, msgSize, BUFFER_SIZE, 0));
 
@@ -62,9 +66,20 @@ void handleClients(SOCKET clientSocket, std::fstream &log) {
         size = std::stoi(msgSize);
     }
 
-    for(int i = 0; i < size; i+=BUFFER_SIZE){
-        int bytesToReceive = (i + BUFFER_SIZE) > size ? size - BUFFER_SIZE : BUFFER_SIZE;
-        int bytesReceivedMsg = (recv(_client->clientSocket, msg, bytesToReceive, 0));
+    if(size > BUFFER_SIZE){
+        for(int i = 0; i < size; i+=BUFFER_SIZE){
+            int bytesToReceive = (i + BUFFER_SIZE) > size ? size - BUFFER_SIZE : BUFFER_SIZE;
+            int bytesReceivedMsg = (recv(_client->clientSocket, msg, bytesToReceive, 0));
+            if (bytesReceivedMsg == INVALID_SOCKET) {
+                std::cout << "Recv failed " << WSAGetLastError() << std::endl;
+            } else {
+                std::cout << "Received msg " << bytesReceivedMsg<<  " bytes\n";
+                _client->data += std::string(msg, bytesReceivedMsg);
+            }
+        }
+    }
+    else {
+        int bytesReceivedMsg = (recv(_client->clientSocket, msg, size, 0));
         if (bytesReceivedMsg == INVALID_SOCKET) {
             std::cout << "Recv failed " << WSAGetLastError() << std::endl;
         } else {
@@ -73,20 +88,27 @@ void handleClients(SOCKET clientSocket, std::fstream &log) {
         }
     }
 
-    std::cout << "Message from user: " << _client->data << "\n Enough users have logged in\n";
+
+    //std::cout << "Message from user: " << _client->data << "\n Enough users have logged in\n";
 
     std::string response = "Thank you for logging into the system user" + std::to_string(_client->number) +
             " you've sent " + std::to_string(size) + " bytes\n";
 
-    log << response << "\n";
+    std::unique_lock bufferLock(bufferMutex);
 
+    bufferCV.wait(bufferLock,[]{return bufferInUse;});
+    bufferInUse = true;
+    log << _client->data << "\n";;
+    bufferInUse = false;
+    std::this_thread::sleep_for(std::chrono::milliseconds (10));
+    bufferCV.notify_all();
     auto sendCode = send(_client->clientSocket, response.c_str(), BUFFER_SIZE, 0);
     std::cout << "User " << _client->number << " proccesed\n";
 
     closesocket(clientSocket);
     delete _client;
     users--;
-    //cv.notify_all();
+    userCountCV.notify_all();
 }
 
 void serverThread(){
@@ -97,6 +119,7 @@ void serverThread(){
         std::cerr << "Can't initialize Winsock! Quitting" << std::endl;
         return;
     }
+
 
     SOCKET listening = socket(AF_INET, SOCK_STREAM, 0);
     if (listening == INVALID_SOCKET) {
@@ -119,7 +142,8 @@ void serverThread(){
 
     std::vector<std::thread> clients;
 
-    std::fstream log(".\log.txt");
+    std::ofstream log;
+    log.open(("..\\log.txt"));
 
     while(true){
         SOCKET ClientSocket = accept(listening,NULL, NULL);
@@ -130,11 +154,13 @@ void serverThread(){
             return;
         }
 
-        clients.emplace_back(handleClients, ClientSocket, log);
+        clients.emplace_back(handleClients, ClientSocket, std::ref(log));
         clients.back().detach();
 
         std::cout << "Adding new thread...\n";
     }
+
+    log.close();
 
     closesocket(listening);
     WSACleanup();
