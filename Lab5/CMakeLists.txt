@@ -3,7 +3,7 @@ project(IoT)
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(LAB5_SRVER server.cpp)
-add_executable(LAB5_CLIENT client.cpp)
+add_executable(LAB3_SRVER server.cpp)
+add_executable(LAB3_CLIENT client.cpp)
 
 
