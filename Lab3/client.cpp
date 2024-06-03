@@ -27,8 +27,6 @@ void handleTraffic(SOCKET sock, int msgSize) {
     hint.sin_port = htons(54000);
     inet_pton(AF_INET, "127.0.0.1", &hint.sin_addr);
 
-
-
     int connResult = connect(sock, (sockaddr *) &hint, sizeof(hint));
     if (connResult == SOCKET_ERROR) {
         std::cerr << "Can't connect to server! Quitting" << std::endl;

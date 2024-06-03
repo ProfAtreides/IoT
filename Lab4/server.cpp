@@ -129,8 +129,8 @@ int main() {
         }
 
         // Receive data from client
-        std::string data;
-        recv(clientSocket, (char*)&data, sizeof(int), 0);
+        char* data;
+        int bytesRecv = (recv(clientSocket, data, 4096, 0));
 
         int p = 17; // Pierwsza liczba pierwsza
         int q = 19; // Druga liczba pierwsza
@@ -145,7 +145,7 @@ int main() {
         std::cout << "Keys have been generated. Public key: " << publicKey << ", Private key: " << privateKey << std::endl;
         std::cout << "Original message: " << data << " encrypted data: "<< vecToStr(encryptedMessage) << " Time spent: " << measureEncryptionTime(data,publicKey,n)<<" ms" << std::endl;
         // Send result to client
-        send(clientSocket, (char*)nullptr, sizeof(double), 0);
+        send(clientSocket, "Todo", 4096, 0);
 
         // Close client socket
         closesocket(clientSocket);
