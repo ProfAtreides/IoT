@@ -1,10 +1,8 @@
 import socket
 import pickle
 from rsa import generateKeys, encryptMessage, randomString, measureEncryptTime, \
-    decryptMessage  # Import RSA functions from the rsa_module
-import lorem
+    decryptMessage
 
-# Define server host and port
 HOST = '127.0.0.1'
 PORT = 65432
 
@@ -18,15 +16,12 @@ def main():
 
     print (f"Message to send: {message}")
 
-    # Encrypt the message
     encrypted_message = encryptMessage(message, publicKey[0], n)
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.connect((HOST, PORT))
-        # Send the encrypted message
         s.sendall(pickle.dumps(encrypted_message))
 
-        # Receive response from server
         data = s.recv(1024)
         print(f"Received from server: {data.decode()}")
         data = s.recv(4096)

@@ -34,7 +34,7 @@ def handle_client(conn, addr, message):
 def main():
     print(f"Public key: {publicKey}")
     print(f"Private key: {privateKey}")
-    message = randomString(64)
+    message = randomString(1024)
     print (f"Message to authenticate: {message}")
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((HOST, PORT))
